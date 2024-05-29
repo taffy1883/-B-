@@ -1,0 +1,83 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <map>
+#include <sstream>
+
+// Function to count occurrences of specific keywords in a string
+int countKeywords(const std::string& text, const std::vector<std::string>& keywords) {
+    int count = 0;
+    for (const auto& keyword : keywords) {
+        size_t pos = text.find(keyword);
+        while (pos != std::string::npos) {
+            ++count;
+            pos = text.find(keyword, pos + keyword.length());
+        }
+    }
+    return count;
+}
+
+// Function to process the output file and find the URL with the most keyword occurrences
+std::string findMostPopularVideo(const std::string& filename, const std::vector<std::string>& keywords) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file " << filename << std::endl;
+        return "";
+    }
+
+    std::string line;
+    std::string currentTitle;
+    std::string currentURL;
+    std::vector<std::string> currentComments;
+    std::map<std::string, int> urlKeywordCount;
+
+    while (std::getline(file, line)) {
+        if (line.substr(0, 6) == "Title:") {
+            currentTitle = line.substr(7);
+        } else if (line.substr(0, 4) == "URL:") {
+            currentURL = line.substr(5);
+        } else if (line.substr(0, 9) == "Comments:") {
+            currentComments.clear();
+        } else if (line.substr(0, 2) == "- ") {
+            currentComments.push_back(line.substr(2));
+        } else if (line.empty() && !currentURL.empty()) {
+            // Calculate keyword count for the current video's comments
+            int totalKeywordCount = 0;
+            for (const auto& comment : currentComments) {
+                totalKeywordCount += countKeywords(comment, keywords);
+            }
+            urlKeywordCount[currentURL] = totalKeywordCount;
+            currentURL.clear(); // Reset for the next entry
+        }
+    }
+
+    file.close();
+
+    // Find the URL with the most keyword occurrences
+    std::string mostPopularURL;
+    int maxCount = 0;
+    for (const auto& entry : urlKeywordCount) {
+        if (entry.second > maxCount) {
+            maxCount = entry.second;
+            mostPopularURL = entry.first;
+        }
+    }
+
+    return mostPopularURL;
+}
+
+int main() {
+    std::vector<std::string> keywords = {"好", "完美", "太棒了", "谢谢"};
+    std::string filename = "output.txt";
+
+    std::string mostPopularURL = findMostPopularVideo(filename, keywords);
+
+    if (!mostPopularURL.empty()) {
+        std::cout << "The URL with the most keywords is: " << mostPopularURL << std::endl;
+    } else {
+        std::cout << "No URL found or no keywords found in the comments." << std::endl;
+    }
+
+    return 0;
+}
